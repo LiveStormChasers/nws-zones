@@ -1,0 +1,39 @@
+name: Generate PMTiles
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - 'zones_*.json'
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+      - name: Install tippecanoe
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y build-essential libsqlite3-dev zlib1g-dev
+          git clone https://github.com/felt/tippecanoe.git
+          cd tippecanoe
+          make -j$(nproc)
+          sudo make install
+      - name: Generate PMTiles
+        run: |
+          tippecanoe \
+            -o nws_zones.pmtiles \
+            --minimum-zoom=4 \
+            --maximum-zoom=14 \
+            --no-simplification-of-shared-nodes \
+            --detect-shared-borders \
+            --no-feature-limit \
+            --no-tile-size-limit \
+            -L zones_main:zones_main.json \
+            -L zones_marine:zones_marine.json \
+            -L zones_patches:zones_patches.json
+      - name: Upload PMTiles artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: nws-zones-pmtiles
+          path: nws_zones.pmtiles
+          retention-days: 90
